@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roteirizador Injedil</title>
+  <meta name="description" content="Monte o melhor roteiro de entregas entre cidades do Brasil.">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+  <header class="topo">
+    <h1>Roteirizador Injedil</h1>
+    <p>Informe as cidades com entrega e receba a melhor ordem de visita.</p>
+  </header>
+
+  <main class="layout">
+    <form id="formulario" class="painel entrada" novalidate>
+      <label for="origem">Cidade de saída</label>
+      <input id="origem" list="lista-municipios" autocomplete="off" placeholder="Ex.: Bauru - SP">
+      <datalist id="lista-municipios"></datalist>
+
+      <label for="entregas">Cidades com entrega</label>
+      <textarea id="entregas" rows="11" spellcheck="false" placeholder="Uma cidade por linha&#10;Marília - SP&#10;Jaú - SP&#10;Lins - SP&#10;Botucatu - SP"></textarea>
+      <p class="dica">Coloque a UF para evitar dúvidas entre cidades de mesmo nome. Também dá para colar uma coluna de planilha.</p>
+
+      <div id="pendencias" class="pendencias" hidden></div>
+
+      <button id="gerar" type="submit">Gerar roteiro</button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <section id="resultado" class="resultado" hidden aria-label="Roteiro gerado">
+      <div id="aviso" class="aviso" hidden></div>
+
+      <div class="painel">
+        <div class="cabecalho-roteiro">
+          <h2 id="titulo-roteiro">Roteiro</h2>
+          <span id="selo" class="selo"></span>
+        </div>
+        <dl class="numeros">
+          <div><dt>Distância total</dt><dd id="total-km"></dd></div>
+          <div><dt>Tempo ao volante</dt><dd id="total-tempo"></dd></div>
+          <div><dt>Cidades</dt><dd id="total-cidades"></dd></div>
+        </dl>
+        <p id="economia" class="economia" hidden></p>
+
+        <div class="tabela-rolagem">
+          <table>
+            <thead>
+              <tr><th scope="col">Ordem</th><th scope="col">Cidade</th><th scope="col" class="numero">Trecho</th><th scope="col" class="numero">Acumulado</th><th scope="col" class="numero">Tempo</th></tr>
+            </thead>
+            <tbody id="linhas"></tbody>
+          </table>
+        </div>
+
+        <div class="acoes">
+          <button id="copiar" type="button" class="secundario">Copiar relação</button>
+          <button id="imprimir" type="button" class="secundario">Imprimir</button>
+          <span id="links-mapas" class="links-mapas"></span>
+        </div>
+      </div>
+
+      <div id="mapa" class="mapa" aria-label="Mapa da rota"></div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <p>Distâncias e tempos calculados para carro, de centro a centro de cada cidade. Não consideram restrições para caminhões, pedágios, paradas ou trânsito.</p>
+    <p>Rotas: <a href="https://project-osrm.org/">OSRM</a>. Mapa: © <a href="https://www.openstreetmap.org/copyright">colaboradores do OpenStreetMap</a>. Municípios: <a href="https://github.com/kelvins/municipios-brasileiros">kelvins/municipios-brasileiros</a>.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="dados/municipios.js"></script>
+  <script src="js/rotas.js"></script>
+  <script src="js/cidades.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
