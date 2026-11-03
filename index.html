@@ -17,12 +17,16 @@
   <main class="layout">
     <form id="formulario" class="painel entrada" novalidate>
       <label for="origem">Cidade de saída</label>
-      <input id="origem" list="lista-municipios" autocomplete="off" placeholder="Ex.: Bauru - SP">
-      <datalist id="lista-municipios"></datalist>
+      <div class="campo-cidade">
+        <input id="origem" type="text" placeholder="Digite 3 letras">
+      </div>
 
-      <label for="entregas">Cidades com entrega</label>
-      <textarea id="entregas" rows="11" spellcheck="false" placeholder="Uma cidade por linha&#10;Marília - SP&#10;Jaú - SP&#10;Lins - SP&#10;Botucatu - SP"></textarea>
-      <p class="dica">Coloque a UF para evitar dúvidas entre cidades de mesmo nome. Também dá para colar uma coluna de planilha.</p>
+      <div role="group" aria-labelledby="rotulo-entregas">
+        <p id="rotulo-entregas" class="rotulo">Cidades com entrega</p>
+        <ol id="lista-entregas" class="lista-entregas"></ol>
+        <button id="adicionar" type="button" class="secundario adicionar"><span aria-hidden="true">+</span> Adicionar cidade</button>
+      </div>
+      <p class="dica">Digite 3 letras e escolha a cidade na lista. Se tiver uma lista pronta, cole em um campo: cada cidade ganha o seu.</p>
 
       <div id="pendencias" class="pendencias" hidden></div>
 
@@ -74,6 +78,7 @@
   <script src="dados/municipios.js"></script>
   <script src="js/rotas.js"></script>
   <script src="js/cidades.js"></script>
+  <script src="js/campo-cidade.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

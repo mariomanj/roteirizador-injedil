@@ -98,6 +98,19 @@
   verificar("sugere Marília", Cidades.resolver("Marilha").candidatos.some((m) => m.rotulo === "Marília - SP"));
   verificar("Bauru-RJ sugere o certo", Cidades.resolver("Bauru - RJ").candidatos[0].rotulo === "Bauru - SP");
 
+  const buscados = (texto) => Cidades.buscar(texto).map((m) => m.rotulo);
+  verificar("busca exige 3 letras", buscados("ma").length === 0 && buscados("mar").length > 0);
+  verificar("busca ignora acento", buscados("mar").includes("Marília - SP") && buscados("JAÚ")[0] === "Jaú - SP");
+  verificar("busca começa pelo prefixo", buscados("bau")[0].startsWith("Bau"));
+  verificar("busca por outra palavra", buscados("paulo").includes("São Paulo - SP"));
+  verificar("busca por trecho", buscados("rilia").includes("Marília - SP"));
+  verificar("busca com UF", buscados("bauru sp")[0] === "Bauru - SP" && buscados("sao jose sp").every((r) => r.endsWith(" - SP")));
+  verificar("busca sem resultado", buscados("xyzw").length === 0);
+  verificar("toda cidade aparece com 3 letras", Cidades.lista.every((m) => {
+    const inicio = m.nome.slice(0, 3);
+    return Cidades.normalizar(inicio).length < Cidades.MINIMO_BUSCA || Cidades.buscar(inicio).includes(m);
+  }));
+
   const saida = document.getElementById("resultado");
   saida.textContent = falhas.length
     ? `FALHOU ${falhas.length}/${total}\n${falhas.join("\n")}`

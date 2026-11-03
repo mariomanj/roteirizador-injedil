@@ -7,8 +7,8 @@ Site para montar o roteiro de entregas: você informa a cidade de saída e as ci
 ## Como usar
 
 1. Digite a **cidade de saída**.
-2. Em **cidades com entrega**, escreva ou cole a lista, de preferência com a UF (`Marília - SP`, `Marília/SP` ou `Marília SP`).
-3. Clique em **Gerar roteiro**. Se uma cidade existir em mais de um estado ou não for encontrada, o site pede para você confirmar.
+2. Em **cidades com entrega**, digite 3 letras em cada campo e escolha a cidade na lista. Use **+ Adicionar cidade** para abrir outro campo e **×** para remover. Se tiver uma lista pronta, cole em um campo: cada cidade ganha o seu.
+3. Clique em **Gerar roteiro**. Se uma cidade digitada sem escolher na lista existir em mais de um estado ou não for encontrada, o site pede para você confirmar.
 4. Use a relação de cidades, com os km e o tempo de cada trecho. Dá para copiar, imprimir ou abrir no Google Maps.
 
 Cada roteiro aceita até 99 cidades, além da saída.
@@ -42,7 +42,8 @@ Depois, abra `http://localhost:8000`. Os testes ficam em `http://localhost:8000/
 | Caminho | Conteúdo |
 | --- | --- |
 | `js/rotas.js` | Otimização da ordem das cidades |
-| `js/cidades.js` | Leitura da lista e identificação dos municípios |
+| `js/cidades.js` | Busca, leitura de listas e identificação dos municípios |
+| `js/campo-cidade.js` | Campo de cidade com sugestões |
 | `js/app.js` | Tela, consulta de distâncias e mapa |
 | `dados/municipios.js` | Municípios, gerados por `ferramentas/gerar_municipios.py` |
 

@@ -9,7 +9,8 @@
   const $ = (id) => document.getElementById(id);
   const formulario = $("formulario");
   const campoOrigem = $("origem");
-  const campoEntregas = $("entregas");
+  const listaEntregas = $("lista-entregas");
+  const botaoAdicionar = $("adicionar");
   const painelPendencias = $("pendencias");
   const botaoGerar = $("gerar");
   const status = $("status");
@@ -20,13 +21,74 @@
   let camadaRota = null;
   let textoRelacao = "";
 
-  const opcoes = document.createDocumentFragment();
-  for (const municipio of Cidades.lista) {
-    const opcao = document.createElement("option");
-    opcao.value = municipio.rotulo;
-    opcoes.append(opcao);
+  const camposEntrega = () => [...listaEntregas.querySelectorAll("input")];
+
+  function aoAlterarCidades() {
+    escolhas.clear();
+    limparPendencias();
   }
-  $("lista-municipios").append(opcoes);
+
+  function renumerarCampos() {
+    const itens = [...listaEntregas.children];
+    itens.forEach((item, i) => {
+      item.querySelector(".ordem-campo").textContent = String(i + 1);
+      item.querySelector("input").setAttribute("aria-label", `Cidade ${i + 1}`);
+      item.querySelector(".remover").setAttribute("aria-label", `Remover cidade ${i + 1}`);
+    });
+    botaoAdicionar.disabled = itens.length >= MAXIMO_PARADAS;
+  }
+
+  function adicionarCampo(valor = "") {
+    const item = document.createElement("li");
+    const ordem = document.createElement("span");
+    ordem.className = "ordem-campo";
+    ordem.setAttribute("aria-hidden", "true");
+
+    const area = document.createElement("div");
+    area.className = "campo-cidade";
+    const campo = document.createElement("input");
+    campo.type = "text";
+    campo.placeholder = "Digite 3 letras";
+    campo.value = valor;
+    area.append(campo);
+
+    const remover = document.createElement("button");
+    remover.type = "button";
+    remover.className = "secundario remover";
+    remover.textContent = "×";
+    remover.addEventListener("click", () => removerCampo(item));
+
+    // Uma lista colada em um campo vira um campo para cada cidade.
+    campo.addEventListener("paste", (evento) => {
+      const itens = Cidades.separarEntrada(evento.clipboardData.getData("text"));
+      if (itens.length < 2) return;
+      evento.preventDefault();
+      if (!campo.value.trim()) campo.value = itens.shift();
+      itens.forEach((texto) => adicionarCampo(texto));
+      aoAlterarCidades();
+      botaoAdicionar.focus();
+    });
+
+    item.append(ordem, area, remover);
+    listaEntregas.append(item);
+    CampoCidade.ativar(campo, { aoAlterar: aoAlterarCidades, aoConcluir: () => botaoAdicionar.focus() });
+    renumerarCampos();
+    return campo;
+  }
+
+  function removerCampo(item) {
+    const campo = item.querySelector("input");
+    if (campo.value.trim()) aoAlterarCidades();
+    if (listaEntregas.children.length === 1) {
+      campo.value = "";
+      campo.focus();
+      return;
+    }
+    const vizinho = item.nextElementSibling || item.previousElementSibling;
+    item.remove();
+    renumerarCampos();
+    vizinho.querySelector("input").focus();
+  }
 
   const formatarKm = (km) => `${Math.round(km).toLocaleString("pt-BR")} km`;
 
@@ -39,9 +101,10 @@
 
   function identificarCidades() {
     const origemTexto = campoOrigem.value.trim();
-    const textos = Cidades.separarEntrada(campoEntregas.value);
+    const textos = camposEntrega().map((campo) => campo.value.trim()).filter(Boolean);
+    const primeiroCampo = camposEntrega()[0];
     if (!origemTexto) return { erro: "Informe a cidade de saída.", foco: campoOrigem };
-    if (!textos.length) return { erro: "Informe ao menos uma cidade com entrega.", foco: campoEntregas };
+    if (!textos.length) return { erro: "Informe ao menos uma cidade com entrega.", foco: primeiroCampo };
 
     const pendencias = [];
     const identificar = (texto, ehOrigem) => {
@@ -64,9 +127,9 @@
     }
 
     if (pendencias.length) return { pendencias };
-    if (!paradas.length) return { erro: "A lista ficou sem cidades diferentes da saída.", foco: campoEntregas };
+    if (!paradas.length) return { erro: "A lista ficou sem cidades diferentes da saída.", foco: primeiroCampo };
     if (paradas.length > MAXIMO_PARADAS) {
-      return { erro: `O limite é de ${MAXIMO_PARADAS} cidades por roteiro; a lista tem ${paradas.length}.`, foco: campoEntregas };
+      return { erro: `O limite é de ${MAXIMO_PARADAS} cidades por roteiro; a lista tem ${paradas.length}.`, foco: primeiroCampo };
     }
     return { origem, paradas, repetidas };
   }
@@ -366,12 +429,13 @@
     gerar();
   });
 
-  for (const campo of [campoOrigem, campoEntregas]) {
-    campo.addEventListener("input", () => {
-      escolhas.clear();
-      limparPendencias();
-    });
-  }
+  CampoCidade.ativar(campoOrigem, {
+    aoAlterar: aoAlterarCidades,
+    aoConcluir: () => (camposEntrega().find((campo) => !campo.value.trim()) || botaoAdicionar).focus(),
+  });
+
+  botaoAdicionar.addEventListener("click", () => adicionarCampo().focus());
+  adicionarCampo();
 
   $("copiar").addEventListener("click", async () => {
     const botao = $("copiar");

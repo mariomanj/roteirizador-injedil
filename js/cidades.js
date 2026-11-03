@@ -2,6 +2,8 @@
 const Cidades = (() => {
   const UFS = new Set("AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS SC SE SP TO".split(" "));
 
+  const MINIMO_BUSCA = 3;
+
   const lista = MUNICIPIOS.map(([nome, uf, lat, lon]) => ({ nome, uf, lat, lon, rotulo: `${nome} - ${uf}` }));
 
   function normalizar(texto) {
@@ -18,6 +20,7 @@ const Cidades = (() => {
   for (const municipio of lista) {
     const chave = normalizar(municipio.nome);
     municipio.chave = chave;
+    municipio.busca = ` ${chave} ${municipio.uf.toLowerCase()}`;
     if (!porNome.has(chave)) porNome.set(chave, []);
     porNome.get(chave).push(municipio);
   }
@@ -64,6 +67,23 @@ const Cidades = (() => {
       .map(({ m }) => m);
   }
 
+  // Primeiro os nomes que começam pelo termo, depois os que têm todas as palavras e, por fim, qualquer trecho.
+  function buscar(texto) {
+    const termo = normalizar(texto);
+    if (termo.length < MINIMO_BUSCA) return [];
+    const palavras = termo.split(" ");
+    const prioridade = (m) => {
+      if (m.busca.startsWith(` ${termo}`)) return 0;
+      if (palavras.every((p) => m.busca.includes(` ${p}`))) return 1;
+      return m.busca.includes(termo) ? 2 : -1;
+    };
+    return lista
+      .map((m) => ({ m, p: prioridade(m) }))
+      .filter(({ p }) => p >= 0)
+      .sort((a, b) => a.p - b.p || a.m.rotulo.localeCompare(b.m.rotulo, "pt-BR"))
+      .map(({ m }) => m);
+  }
+
   // Nunca corrige por conta própria: dúvidas voltam como "ambiguo" ou "nao_encontrado" para a pessoa escolher.
   function resolver(texto) {
     const chave = normalizar(texto);
@@ -85,5 +105,5 @@ const Cidades = (() => {
     return { status: "nao_encontrado", candidatos: sugerir(uf ? comUf[1] : chave, uf) };
   }
 
-  return { lista, normalizar, separarEntrada, resolver };
+  return { MINIMO_BUSCA, lista, normalizar, separarEntrada, buscar, resolver };
 })();
