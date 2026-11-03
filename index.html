@@ -48,11 +48,16 @@
           <div><dt>Cidades</dt><dd id="total-cidades"></dd></div>
         </dl>
         <p id="economia" class="economia" hidden></p>
+        <div id="edicao" class="edicao" role="status" hidden>
+          <span id="edicao-texto"></span>
+          <button id="restaurar" type="button" class="secundario">Voltar à sugestão</button>
+        </div>
+        <p id="dica-ordem" class="dica dica-ordem">Para mudar a ordem, arraste pela alça <span aria-hidden="true">⋮⋮</span> ou use as setas.</p>
 
         <div class="tabela-rolagem">
           <table>
             <thead>
-              <tr><th scope="col">Ordem</th><th scope="col">Cidade</th><th scope="col" class="numero">Trecho</th><th scope="col" class="numero">Acumulado</th><th scope="col" class="numero">Tempo</th></tr>
+              <tr><th scope="col">Ordem</th><th scope="col">Cidade</th><th scope="col" class="numero">Trecho</th><th scope="col" class="numero">Acumulado</th><th scope="col" class="numero">Tempo</th><th scope="col" class="coluna-mover">Mover</th></tr>
             </thead>
             <tbody id="linhas"></tbody>
           </table>

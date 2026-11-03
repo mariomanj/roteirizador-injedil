@@ -191,7 +191,47 @@ button:disabled { opacity: 0.6; cursor: wait; }
 .numeros dt { color: var(--texto-suave); font-size: 0.8125rem; }
 .numeros dd { margin: 0; font-size: 1.375rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.3; }
 
+.selo.editado { background: var(--aviso-fundo); color: var(--aviso-texto); }
+
 .economia { margin: 12px 0 0; color: var(--sucesso); font-weight: 600; }
+
+.edicao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--aviso-borda);
+  border-radius: 6px;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
+  font-weight: 600;
+}
+
+.dica-ordem { margin: 12px 0 0; }
+
+.alca {
+  display: inline-block;
+  width: 24px;
+  margin-right: 4px;
+  color: var(--texto-suave);
+  letter-spacing: -3px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sem-selecao { user-select: none; }
+.arrastando td { background: var(--destaque-fundo); }
+.arrastando .alca { cursor: grabbing; }
+
+.coluna-mover { width: 1%; text-align: right; white-space: nowrap; }
+.botao-mover { width: 36px; min-height: 36px; margin-left: 4px; padding: 0; line-height: 1; }
+.botao-mover:disabled { opacity: 0.35; cursor: default; }
+.botao-mover:disabled:hover { background: var(--superficie); }
+.detalhe-trecho { display: none; color: var(--texto-suave); font-size: 0.8125rem; }
 
 .tabela-rolagem { margin-top: 16px; overflow-x: auto; }
 
@@ -247,13 +287,14 @@ td:first-child { font-weight: 700; color: var(--marca-escura); white-space: nowr
   .numeros div { padding: 8px; }
   .numeros dd { font-size: 1.0625rem; }
   th, td { padding: 8px 6px; }
-  th:nth-child(4), td:nth-child(4) { display: none; }
+  th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { display: none; }
+  .detalhe-trecho { display: block; }
   .acoes > button, .botao-link { flex: 1 1 100%; text-align: center; }
 }
 
 @media print {
   body { background: #fff; }
-  .topo p, .entrada, .acoes, .mapa, .rodape { display: none; }
+  .topo p, .entrada, .acoes, .mapa, .rodape, .dica-ordem, .edicao button, .coluna-mover, .alca { display: none; }
   .layout { display: block; padding: 0; }
   .painel { border: 0; padding: 0; }
   .numeros div { background: none; border: 1px solid var(--borda); }

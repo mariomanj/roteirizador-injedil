@@ -9,7 +9,8 @@ Site para montar o roteiro de entregas: você informa a cidade de saída e as ci
 1. Digite a **cidade de saída**.
 2. Em **cidades com entrega**, digite 3 letras em cada campo e escolha a cidade na lista. Use **+ Adicionar cidade** para abrir outro campo e **×** para remover. Se tiver uma lista pronta, cole em um campo: cada cidade ganha o seu.
 3. Clique em **Gerar roteiro**. Se uma cidade digitada sem escolher na lista existir em mais de um estado ou não for encontrada, o site pede para você confirmar.
-4. Use a relação de cidades, com os km e o tempo de cada trecho. Dá para copiar, imprimir ou abrir no Google Maps.
+4. Se quiser outra ordem, arraste a cidade pela alça ou use as setas. Os km, o tempo e o mapa são atualizados, e a tela mostra a diferença para a rota sugerida. **Voltar à sugestão** desfaz as mudanças.
+5. Use a relação de cidades, com os km e o tempo de cada trecho. Dá para copiar, imprimir ou abrir no Google Maps, sempre na ordem que está na tela.
 
 Cada roteiro aceita até 99 cidades, além da saída.
 

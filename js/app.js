@@ -20,6 +20,9 @@
   let mapa = null;
   let camadaRota = null;
   let textoRelacao = "";
+  let roteiro = null;
+  let pedidoTrajeto = 0;
+  let esperaTrajeto = null;
 
   const camposEntrega = () => [...listaEntregas.querySelectorAll("input")];
 
@@ -226,11 +229,7 @@
   async function obterTrajeto(pontos) {
     try {
       const dados = await consultarOsrm(`/route/v1/driving/${coordenadas(pontos)}?overview=full&geometries=geojson`);
-      const rota = dados.routes[0];
-      return {
-        linha: rota.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
-        trechos: rota.legs.map((perna) => ({ km: perna.distance / 1000, minutos: perna.duration / 60 })),
-      };
+      return dados.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
     } catch (erro) {
       console.warn(erro);
       return null;
@@ -264,39 +263,173 @@
     aviso.hidden = !mensagens.length;
   }
 
-  function adicionarLinha(marca, cidade, trecho, acumulado, tempo, classe) {
-    const linha = $("linhas").insertRow();
-    if (classe) linha.className = classe;
-    [marca, cidade, trecho, acumulado, tempo].forEach((valor, i) => {
-      const celula = linha.insertCell();
-      celula.textContent = valor;
-      if (i >= 2) celula.className = "numero";
-    });
+  function avisosDoRoteiro() {
+    const avisos = [];
+    if (roteiro.matriz.estimada) {
+      avisos.push("O serviço de rotas não informou todas as distâncias. Os valores estão estimados pela linha reta e a ordem pode não ser a melhor; tente de novo em alguns minutos.");
+    } else if (roteiro.trajetoFalhou) {
+      avisos.push("A ordem usa distâncias reais, mas o desenho da rota não pôde ser carregado: o mapa mostra linhas retas.");
+    }
+    if (roteiro.repetidas.length) {
+      avisos.push(`Não entraram de novo, por repetirem outra cidade ou a saída: ${[...new Set(roteiro.repetidas)].join(", ")}.`);
+    }
+    return avisos;
   }
 
-  function mostrarRoteiro({ origem, sequencia, trechos, garantida, economiaKm, avisos, linhaMapa }) {
-    const totalKm = trechos.reduce((soma, t) => soma + t.km, 0);
+  function criarBotaoMover(classe, simbolo, rotulo, desativado, aoClicar) {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = `secundario botao-mover ${classe}`;
+    botao.textContent = simbolo;
+    botao.disabled = desativado;
+    botao.setAttribute("aria-label", rotulo);
+    botao.addEventListener("click", aoClicar);
+    return botao;
+  }
+
+  function adicionarLinha({ marca, cidade, trecho, posicao }) {
+    const linha = $("linhas").insertRow();
+    const movel = posicao !== undefined && roteiro.ordem.length > 1;
+    if (posicao === undefined) linha.className = "linha-base";
+    else linha.dataset.posicao = String(posicao);
+
+    const celulaOrdem = linha.insertCell();
+    if (movel) {
+      const alca = document.createElement("span");
+      alca.className = "alca";
+      alca.title = "Arraste para mudar a ordem";
+      alca.setAttribute("aria-hidden", "true");
+      alca.textContent = "⋮⋮";
+      alca.addEventListener("pointerdown", (evento) => iniciarArraste(evento, linha, posicao));
+      celulaOrdem.append(alca);
+    }
+    celulaOrdem.append(marca);
+
+    const celulaCidade = linha.insertCell();
+    celulaCidade.textContent = cidade.rotulo;
+    if (trecho) {
+      const detalhe = document.createElement("small");
+      detalhe.className = "detalhe-trecho";
+      detalhe.textContent = `${formatarKm(trecho.km)} · ${formatarTempo(trecho.minutos)}`;
+      celulaCidade.append(detalhe);
+    }
+
+    const valores = trecho ? [formatarKm(trecho.km), formatarKm(trecho.acumulado), formatarTempo(trecho.minutos)] : ["", "", ""];
+    for (const valor of valores) {
+      const celula = linha.insertCell();
+      celula.className = "numero";
+      celula.textContent = valor;
+    }
+
+    const celulaMover = linha.insertCell();
+    celulaMover.className = "coluna-mover";
+    if (movel) {
+      const ultimaPosicao = roteiro.ordem.length - 1;
+      celulaMover.append(
+        criarBotaoMover("subir", "↑", `Subir ${cidade.rotulo}`, posicao === 0, () => moverParada(posicao, posicao - 1, true)),
+        criarBotaoMover("descer", "↓", `Descer ${cidade.rotulo}`, posicao === ultimaPosicao, () => moverParada(posicao, posicao + 1, true)),
+      );
+    }
+  }
+
+  function moverParada(de, para, manterFoco) {
+    const ordem = [...roteiro.ordem];
+    const [parada] = ordem.splice(de, 1);
+    ordem.splice(para, 0, parada);
+    roteiro.ordem = ordem;
+    mostrarRoteiro();
+    atualizarTrajeto(false);
+    if (manterFoco) {
+      const linha = $("linhas").querySelector(`[data-posicao="${para}"]`);
+      const classe = para > de ? ".descer" : ".subir";
+      (linha.querySelector(`${classe}:not(:disabled)`) || linha.querySelector(".botao-mover:not(:disabled)")).focus();
+    }
+  }
+
+  // A linha acompanha o ponteiro e a nova ordem só vale ao soltar. Funciona com mouse e com toque.
+  function iniciarArraste(evento, linha, posicao) {
+    evento.preventDefault();
+    const ponteiro = evento.pointerId;
+    const corpo = $("linhas");
+    linha.classList.add("arrastando");
+    document.body.classList.add("sem-selecao");
+
+    // Os eventos ficam no documento porque mover a linha na página faz o navegador soltar a alça.
+    const aoMover = (e) => {
+      if (e.pointerId !== ponteiro) return;
+      const alvo = [...corpo.querySelectorAll("[data-posicao]")].find((outra) => {
+        if (outra === linha) return false;
+        const area = outra.getBoundingClientRect();
+        return e.clientY < area.top + area.height / 2;
+      }) || corpo.lastElementChild;
+      if (linha.nextElementSibling !== alvo) corpo.insertBefore(linha, alvo);
+      if (e.clientY < 48) window.scrollBy(0, -16);
+      else if (e.clientY > window.innerHeight - 48) window.scrollBy(0, 16);
+    };
+    const encerrar = () => {
+      document.removeEventListener("pointermove", aoMover);
+      document.removeEventListener("pointerup", aoSoltar);
+      document.removeEventListener("pointercancel", aoCancelar);
+      document.body.classList.remove("sem-selecao");
+      linha.classList.remove("arrastando");
+    };
+    const aoSoltar = (e) => {
+      if (e.pointerId !== ponteiro) return;
+      encerrar();
+      const nova = [...corpo.querySelectorAll("[data-posicao]")].indexOf(linha);
+      if (nova !== posicao) moverParada(posicao, nova, false);
+    };
+    const aoCancelar = (e) => {
+      if (e.pointerId !== ponteiro) return;
+      encerrar();
+      mostrarRoteiro();
+    };
+    document.addEventListener("pointermove", aoMover);
+    document.addEventListener("pointerup", aoSoltar);
+    document.addEventListener("pointercancel", aoCancelar);
+  }
+
+  function mostrarEdicao(editado, totalKm) {
+    $("edicao").hidden = !editado;
+    if (!editado) return;
+    const diferenca = Math.round(totalKm) - Math.round(roteiro.custoSugerido);
+    if (diferenca === 0) $("edicao-texto").textContent = "Ordem editada: mesma distância da sugerida.";
+    else $("edicao-texto").textContent = `Ordem editada: ${formatarKm(Math.abs(diferenca))} a ${diferenca > 0 ? "mais" : "menos"} que a sugerida.`;
+  }
+
+  function mostrarRoteiro() {
+    const { origem, pontos, matriz, ordem, sugerida, garantida, economiaKm } = roteiro;
+    const circuito = [0, ...ordem, 0];
+    const sequencia = circuito.map((i) => pontos[i]);
+    let acumuladoKm = 0;
+    const trechos = circuito.slice(1).map((destino, i) => {
+      const km = matriz.km[circuito[i]][destino];
+      acumuladoKm += km;
+      return { km, minutos: matriz.minutos[circuito[i]][destino], acumulado: acumuladoKm };
+    });
+    const totalKm = acumuladoKm;
     const totalMinutos = trechos.reduce((soma, t) => soma + t.minutos, 0);
-    const quantidade = sequencia.length - 2;
+    const editado = ordem.join() !== sugerida.join();
 
     $("titulo-roteiro").textContent = `Roteiro saindo de ${origem.rotulo}`;
-    $("selo").textContent = garantida ? "Menor distância garantida" : "Melhor rota encontrada";
+    $("selo").textContent = editado ? "Ordem editada" : garantida ? "Menor distância garantida" : "Melhor rota encontrada";
+    $("selo").classList.toggle("editado", editado);
     $("total-km").textContent = formatarKm(totalKm);
     $("total-tempo").textContent = formatarTempo(totalMinutos);
-    $("total-cidades").textContent = String(quantidade);
-    $("economia").hidden = economiaKm < 1;
+    $("total-cidades").textContent = String(ordem.length);
+    $("economia").hidden = editado || economiaKm < 1;
     $("economia").textContent = `${formatarKm(economiaKm)} a menos do que seguir a ordem digitada.`;
-    mostrarAvisos(avisos);
+    $("dica-ordem").hidden = ordem.length < 2;
+    mostrarEdicao(editado, totalKm);
+    mostrarAvisos(avisosDoRoteiro());
 
     $("linhas").replaceChildren();
-    adicionarLinha("Saída", origem.rotulo, "", "", "", "linha-base");
+    adicionarLinha({ marca: "Saída", cidade: origem });
     const relacao = ["Roteiro Injedil", `Saída: ${origem.rotulo}`];
-    let acumulado = 0;
     trechos.forEach((trecho, i) => {
-      acumulado += trecho.km;
       const ultima = i === trechos.length - 1;
       const cidade = sequencia[i + 1];
-      adicionarLinha(ultima ? "Volta" : String(i + 1), cidade.rotulo, formatarKm(trecho.km), formatarKm(acumulado), formatarTempo(trecho.minutos), ultima ? "linha-base" : "");
+      adicionarLinha(ultima ? { marca: "Volta", cidade, trecho } : { marca: String(i + 1), cidade, trecho, posicao: i });
       relacao.push(ultima
         ? `Retorno: ${cidade.rotulo} (${formatarKm(trecho.km)})`
         : `${i + 1}. ${cidade.rotulo} (${formatarKm(trecho.km)})`);
@@ -316,11 +449,33 @@
     }));
 
     $("resultado").hidden = false;
-    desenharMapa(sequencia, linhaMapa);
-    $("resultado").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function desenharMapa(sequencia, linhaMapa) {
+  // Desenha na hora com linhas retas e busca o traçado depois, para não consultar o serviço a cada clique.
+  function atualizarTrajeto(ajustarMapa) {
+    const alvo = roteiro;
+    const chave = alvo.ordem.join();
+    const sequencia = [0, ...alvo.ordem, 0].map((i) => alvo.pontos[i]);
+    const pedido = ++pedidoTrajeto;
+    clearTimeout(esperaTrajeto);
+    desenharMapa(sequencia, alvo.trajetos.get(chave) ?? null, ajustarMapa);
+    if (alvo.matriz.estimada || alvo.trajetos.has(chave)) {
+      alvo.trajetoFalhou = false;
+      mostrarAvisos(avisosDoRoteiro());
+      return;
+    }
+    esperaTrajeto = setTimeout(async () => {
+      const linha = await obterTrajeto(sequencia);
+      if (pedido !== pedidoTrajeto) return;
+      alvo.trajetoFalhou = !linha;
+      mostrarAvisos(avisosDoRoteiro());
+      if (!linha) return;
+      alvo.trajetos.set(chave, linha);
+      desenharMapa(sequencia, linha, false);
+    }, 400);
+  }
+
+  function desenharMapa(sequencia, linhaMapa, ajustarMapa) {
     const areaMapa = $("mapa");
     if (typeof L === "undefined") {
       areaMapa.hidden = true;
@@ -353,7 +508,7 @@
       });
       L.marker([m.lat, m.lon], { icon: icone, title: m.rotulo, alt: m.rotulo }).addTo(camadaRota);
     });
-    mapa.fitBounds(linha.getBounds(), { padding: [32, 32] });
+    if (ajustarMapa) mapa.fitBounds(linha.getBounds(), { padding: [32, 32] });
   }
 
   async function gerar() {
@@ -387,33 +542,24 @@
       const custoDigitado = Rotas.custoCircuito(matriz.km, paradas.map((_, i) => i + 1));
 
       status.textContent = "Traçando a rota no mapa…";
-      const circuito = [0, ...ordem, 0];
-      const sequencia = circuito.map((i) => pontos[i]);
-      const trajeto = matriz.estimada ? null : await obterTrajeto(sequencia);
-      const trechos = trajeto?.trechos ?? circuito.slice(1).map((destino, i) => ({
-        km: matriz.km[circuito[i]][destino],
-        minutos: matriz.minutos[circuito[i]][destino],
-      }));
+      const linhaMapa = matriz.estimada ? null : await obterTrajeto([0, ...ordem, 0].map((i) => pontos[i]));
 
-      const avisos = [];
-      if (matriz.estimada) {
-        avisos.push("O serviço de rotas não informou todas as distâncias. Os valores estão estimados pela linha reta e a ordem pode não ser a melhor; tente de novo em alguns minutos.");
-      } else if (!trajeto) {
-        avisos.push("A ordem usa distâncias reais, mas o desenho da rota não pôde ser carregado: o mapa mostra linhas retas.");
-      }
-      if (repetidas.length) {
-        avisos.push(`Não entraram de novo, por repetirem outra cidade ou a saída: ${[...new Set(repetidas)].join(", ")}.`);
-      }
-
-      mostrarRoteiro({
+      roteiro = {
         origem,
-        sequencia,
-        trechos,
+        pontos,
+        matriz,
+        ordem,
+        sugerida: ordem,
+        custoSugerido: custo,
         garantida: garantida && !matriz.estimada,
         economiaKm: custoDigitado - custo,
-        avisos,
-        linhaMapa: trajeto?.linha ?? null,
-      });
+        repetidas,
+        trajetos: new Map(linhaMapa ? [[ordem.join(), linhaMapa]] : []),
+        trajetoFalhou: !matriz.estimada && !linhaMapa,
+      };
+      mostrarRoteiro();
+      atualizarTrajeto(true);
+      $("resultado").scrollIntoView({ behavior: "smooth", block: "start" });
       status.textContent = "";
     } catch (erro) {
       console.error(erro);
@@ -449,4 +595,11 @@
   });
 
   $("imprimir").addEventListener("click", () => window.print());
+
+  $("restaurar").addEventListener("click", () => {
+    roteiro.ordem = roteiro.sugerida;
+    mostrarRoteiro();
+    atualizarTrajeto(false);
+    $("linhas").querySelector(".botao-mover:not(:disabled)")?.focus();
+  });
 })();
